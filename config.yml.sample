@@ -4,7 +4,7 @@ source:
 target:
   url: 'http://localhost:7474/db/data'
 mappings:
-  - fromItem: actors
-    toItem: movies
-    intermediateItem: roles
-    relationName: acts_in
+  - fromitem: actors
+    toitem: movies
+    intermediateitem: roles
+    relationname: acts_in
