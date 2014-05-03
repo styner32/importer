@@ -24,7 +24,7 @@ func TestTitleizeOneWord(t *testing.T) {
 
 func TestToIdColumn(t *testing.T) {
 	input := "media_resource"
-	result := Titleize(input)
+	result := ToIdColumn(input)
 	expected := "media_resource_id"
 
 	if expected != result {
