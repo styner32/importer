@@ -1,0 +1,10 @@
+source:
+  user: username
+  dbname: database_name
+target:
+  url: 'http://localhost:7474/db/data'
+mappings:
+  - fromItem: actors
+    toItem: movies
+    intermediateItem: roles
+    relationName: acts_in
