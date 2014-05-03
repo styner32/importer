@@ -127,7 +127,8 @@ func Import(sourceDb *sql.DB, targetDb *neoism.Database, fromItem string, toItem
 				switch key {
 				default:
 					if reflect.ValueOf(value).Kind() == reflect.Slice {
-						relationProperties[key] = reflect.ValueOf(value).String()
+						chrs := value.([]uint8)
+						relationProperties[key] = Uint8ToString(chrs)
 					} else {
 						relationProperties[key] = value
 					}

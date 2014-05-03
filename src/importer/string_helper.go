@@ -29,3 +29,12 @@ func ToIdColumn(str string) string {
 	buffer.WriteString("_id")
 	return buffer.String()
 }
+
+func Uint8ToString(chrs []uint8) string {
+	var buffer bytes.Buffer
+
+	for _, chr := range chrs {
+		buffer.WriteByte(byte(chr))
+	}
+	return buffer.String()
+}

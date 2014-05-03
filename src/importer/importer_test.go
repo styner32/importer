@@ -31,3 +31,13 @@ func TestToIdColumn(t *testing.T) {
 		t.Fatalf("Expected %s, got %s in %s", expected, result)
 	}
 }
+
+func TestUint8ToString(t *testing.T) {
+	input := []uint8{104, 101, 108, 108, 111}
+	result := Uint8ToString(input)
+	expected := "hello"
+
+	if expected != result {
+		t.Fatalf("Expected %s, got %s in %s", expected, result)
+	}
+}
