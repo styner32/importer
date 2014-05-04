@@ -30,6 +30,13 @@ func ToIdColumn(str string) string {
 	return buffer.String()
 }
 
+func ToCodeColumn(str string) string {
+	var buffer bytes.Buffer
+	buffer.WriteString(str)
+	buffer.WriteString("_code")
+	return buffer.String()
+}
+
 func Uint8ToString(chrs []uint8) string {
 	var buffer bytes.Buffer
 
