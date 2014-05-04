@@ -28,6 +28,11 @@ type Config struct {
 	}
 }
 
+type Identifier struct {
+	Id   int64
+	Code string
+}
+
 const (
 	DEFAULT_BATCH_SIZE int = 1024
 )
@@ -47,8 +52,12 @@ func Run() {
 		log.Fatal(err)
 	}
 	fmt.Printf("Neo4j Db: %v\n", target_db)
+
+	ClearDatabase(target_db)
+	ResetIndexes(target_db, db_config)
+
 	for _, mapping := range db_config.Mappings {
-		Import(source_db, target_db, mapping.Fromitem, mapping.Toitem, mapping.Intermediateitem, mapping.Relationname)
+		ImportRelationship(source_db, target_db, mapping.Fromitem, mapping.Toitem, mapping.Intermediateitem, mapping.Relationname)
 	}
 }
 
@@ -76,7 +85,7 @@ func GetDbConfig(configFilename string) *Config {
 	return &dbConfig
 }
 
-func Import(sourceDb *sql.DB, targetDb *neoism.Database, fromItem string, toItem string, intermediateItem string, relationName string) {
+func ImportRelationship(sourceDb *sql.DB, targetDb *neoism.Database, fromItem string, toItem string, intermediateItem string, relationName string) {
 	fromNodeName := Titleize(fromItem)
 	toNodeName := Titleize(toItem)
 
@@ -84,10 +93,7 @@ func Import(sourceDb *sql.DB, targetDb *neoism.Database, fromItem string, toItem
 
 	fromIdColumn := ToIdColumn(fromItem)
 	toIdColumn := ToIdColumn(toItem)
-
-	ClearDatabase(targetDb)
-	ResetIndexes(targetDb, fromNodeName)
-	ResetIndexes(targetDb, toNodeName)
+	toCodeColumn := ToCodeColumn(toItem)
 
 	GetNumberOfRows(sourceDb, intermediateTableName)
 
@@ -127,15 +133,16 @@ func Import(sourceDb *sql.DB, targetDb *neoism.Database, fromItem string, toItem
 				switch key {
 				default:
 					if reflect.ValueOf(value).Kind() == reflect.Slice {
-						chrs := value.([]uint8)
-						relationProperties[key] = Uint8ToString(chrs)
+						relationProperties[key] = Uint8ToString(value.([]uint8))
 					} else {
 						relationProperties[key] = value
 					}
 				case fromIdColumn:
-					fromNode = FindOrCreateNode(targetDb, fromNodeName, value.(int64))
+					fromNode = FindOrCreateNode(targetDb, fromNodeName, Identifier{Id: value.(int64)})
 				case toIdColumn:
-					toNode = FindOrCreateNode(targetDb, toNodeName, value.(int64))
+					toNode = FindOrCreateNode(targetDb, toNodeName, Identifier{Id: value.(int64)})
+				case toCodeColumn:
+					toNode = FindOrCreateNode(targetDb, toNodeName, Identifier{Code: Uint8ToString(value.([]uint8))})
 				}
 			}
 		}
@@ -162,9 +169,18 @@ func ClearDatabase(db *neoism.Database) {
 	}
 }
 
-func ResetIndexes(db *neoism.Database, nodeName string) {
-	DropUniqunessContraintTo(db, nodeName)
-	CreateUniqunessContraintTo(db, nodeName)
+func ResetIndexes(db *neoism.Database, config *Config) {
+	set := make(map[string]bool)
+
+	for i := 0; i < len(config.Mappings); i++ {
+		set[Titleize(config.Mappings[i].Fromitem)] = true
+		set[Titleize(config.Mappings[i].Toitem)] = true
+	}
+
+	for key, _ := range set {
+		DropUniqunessContraintTo(db, key)
+		CreateUniqunessContraintTo(db, key)
+	}
 }
 
 func GetNumberOfRows(db *sql.DB, tableName string) {
@@ -185,7 +201,7 @@ func DropUniqunessContraintTo(db *neoism.Database, nodeName string) {
 
 	err := db.Cypher(&cypher_query)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
 }
 
@@ -201,15 +217,24 @@ func CreateUniqunessContraintTo(db *neoism.Database, nodeName string) {
 	}
 }
 
-func FindOrCreateNode(db *neoism.Database, nodeName string, id int64) *neoism.Node {
+func FindOrCreateNode(db *neoism.Database, nodeName string, identifier Identifier) *neoism.Node {
 	resource := []struct {
 		N neoism.Node
 	}{}
 
+	parameters := neoism.Props{}
+	if identifier.Id != 0 {
+		parameters["id"] = identifier.Id
+	} else if identifier.Code != "" {
+		parameters["id"] = identifier.Code
+	} else {
+		log.Fatal("Wrong Identifier: %v", identifier)
+	}
+
 	statement := fmt.Sprintf("MATCH (n:%s) WHERE n.id = {id} RETURN n", nodeName)
 	cypher_query := neoism.CypherQuery{
 		Statement:  statement,
-		Parameters: neoism.Props{"id": id},
+		Parameters: parameters,
 		Result:     &resource,
 	}
 
@@ -222,7 +247,7 @@ func FindOrCreateNode(db *neoism.Database, nodeName string, id int64) *neoism.No
 	if len(resource) == 0 {
 		cypher_query := neoism.CypherQuery{
 			Statement:  statement,
-			Parameters: neoism.Props{"id": id},
+			Parameters: parameters,
 			Result:     &resource,
 		}
 
